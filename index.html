@@ -1,0 +1,1911 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0f0f13">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="가계부">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<title>가계부</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f0f13;
+    --surface: #1a1a22;
+    --surface2: #22222e;
+    --border: #2e2e3e;
+    --accent: #7c6aff;
+    --text: #e8e8f0;
+    --text2: #8888aa;
+    --text3: #55556a;
+    --green: #4ade80;
+    --red: #ff6a6a;
+    --radius: 16px;
+    --radius-sm: 10px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: var(--surface); color: var(--text);
+    height: 100vh; display: flex; flex-direction: column;
+    max-width: 430px; margin: 0 auto;
+    position: relative; overflow: hidden;
+  }
+
+  /* ── FIXED HEADER BLOCK (topbar + quick-add) ── */
+  .header-block {
+    position: fixed; top: 0; left: 50%; transform: translateX(-50%);
+    width: 100%; max-width: 430px;
+    background: var(--surface);
+    z-index: 50;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* ── TOP BAR ── */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px 10px;
+  }
+  .topbar-title { font-size: 18px; font-weight: 700; letter-spacing: -0.5px; }
+  .topbar-date {
+    font-size: 12px; color: var(--text2); font-family: 'DM Mono', monospace;
+    cursor: pointer; padding: 5px 10px; border-radius: 8px;
+    transition: background 0.15s; display: flex; align-items: center; gap: 5px;
+    user-select: none; border: 1px solid transparent;
+  }
+  .topbar-date:hover  { background: var(--surface2); border-color: var(--border); }
+  .topbar-date:active { background: var(--border); }
+  .topbar-date.custom { color: var(--accent); border-color: var(--accent); }
+
+  /* ── QUICK ADD ── */
+  .quick-add {
+    margin: 0 16px 12px;
+    background: var(--surface2);
+    border-radius: var(--radius); border: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .cat-grid {
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    padding: 8px 6px; border-bottom: 1px solid var(--border);
+  }
+  .cat-btn {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    padding: 6px 4px; border-radius: var(--radius-sm);
+    border: none; background: transparent; cursor: pointer;
+    transition: background 0.15s; color: var(--text2);
+  }
+  .cat-btn.active { background: var(--surface2); color: var(--text); }
+  .cat-icon  { font-size: 20px; line-height: 1; }
+  .cat-label { font-size: 9px; white-space: nowrap; }
+  .cat-dot   { width: 4px; height: 4px; border-radius: 50%; background: var(--accent); margin-top: 1px; }
+
+  .input-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 12px; border-bottom: 1px solid var(--border);
+  }
+  .amount-wrap, .memo-wrap {
+    display: flex; align-items: center; gap: 5px;
+    width: calc(50% - 4px); flex-shrink: 0;
+    background: var(--surface2); border-radius: var(--radius-sm);
+    padding: 8px 12px; border: 1.5px solid transparent; transition: border-color 0.15s;
+  }
+  .amount-wrap:focus-within { border-color: var(--accent); }
+  .memo-wrap:focus-within   { border-color: var(--border); }
+  .amount-currency { font-family: 'DM Mono', monospace; font-size: 16px; color: var(--text2); flex-shrink: 0; }
+  .amount-input {
+    flex: 1; background: transparent; border: none; outline: none;
+    color: var(--text); font-size: 18px; font-family: 'DM Mono', monospace;
+    font-weight: 500; width: 0; min-width: 0;
+  }
+  .amount-input::placeholder { color: var(--text3); font-size: 14px; }
+  .memo-icon { font-size: 13px; flex-shrink: 0; }
+  .memo-input {
+    flex: 1; background: transparent; border: none; outline: none;
+    color: var(--text); font-size: 13px; min-width: 0;
+  }
+  .memo-input::placeholder { color: var(--text3); }
+
+  .add-btn {
+    width: 100%; padding: 13px; background: var(--accent); border: none;
+    color: white; font-size: 14px; font-weight: 700;
+    cursor: pointer; transition: opacity 0.15s; letter-spacing: 0.3px;
+  }
+  .add-btn:active   { opacity: 0.85; }
+  .add-btn:disabled { background: var(--surface2); color: var(--text3); cursor: not-allowed; }
+
+  /* ── GROUPED SCROLL LIST ── */
+  .all-section {
+    position: fixed; left: 50%; transform: translateX(-50%);
+    width: 100%; max-width: 430px;
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+    padding: 0 16px 20px; background: var(--surface);
+    /* top and bottom set by JS */
+  }
+  .date-group { margin-bottom: 0; }
+  .date-group.first-group .date-header { padding-top: 6px; }
+  .date-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 2px 5px;
+    background: var(--surface);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .date-header-left { display: flex; align-items: baseline; gap: 7px; }
+  .date-header-day  { font-size: 13px; font-weight: 700; font-family: 'DM Mono', monospace; color: var(--text); }
+  .date-header-day.today { color: var(--accent); }
+  .date-header-wd   { font-size: 11px; color: var(--text3); }
+  .date-header-total { font-size: 12px; color: var(--text2); font-family: 'DM Mono', monospace; }
+
+  .tx-list { display: flex; flex-direction: column; gap: 5px; margin-bottom: 8px; }
+  .tx-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px; background: var(--surface);
+    border-radius: var(--radius-sm); border: 1px solid var(--border);
+    position: relative;
+    animation: fadeIn 0.2s ease;
+  }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+  .tx-cat-icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: var(--surface2); display: flex; align-items: center;
+    justify-content: center; font-size: 16px; flex-shrink: 0;
+  }
+  .tx-info { flex: 1; min-width: 0; }
+  .tx-name { font-size: 13px; font-weight: 500; margin-bottom: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tx-cat  { font-size: 11px; color: var(--text3); }
+  .tx-amount { font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 500; color: var(--text); flex-shrink: 0; }
+  .tx-delete {
+    position: absolute; top: 5px; right: 6px;
+    background: none; border: none; color: var(--text3);
+    font-size: 11px; cursor: pointer; padding: 3px 5px;
+    opacity: 0; transition: opacity 0.15s; line-height: 1;
+  }
+  .tx-item:hover .tx-delete,
+  .tx-item.show-delete .tx-delete { opacity: 1; }
+
+  .empty { text-align: center; padding: 40px 0; color: var(--text3); font-size: 14px; }
+  .empty-icon { font-size: 32px; margin-bottom: 8px; }
+
+  /* ── BOTTOM NAV ── */
+  .bottom-nav {
+    position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+    width: 100%; max-width: 430px;
+    background: var(--surface); border-top: 1px solid var(--border);
+    display: flex; padding: 8px 0 20px; z-index: 100;
+  }
+  .nav-btn {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+    padding: 6px; background: none; border: none; cursor: pointer;
+    color: var(--text3); transition: color 0.15s;
+  }
+  .nav-btn.active { color: var(--accent); }
+  .nav-icon  { font-size: 22px; }
+  .nav-label { font-size: 10px; }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed; top: 20px; left: 50%;
+    transform: translateX(-50%) translateY(-80px);
+    background: var(--green); color: #0f2010;
+    padding: 10px 20px; border-radius: 100px;
+    font-size: 14px; font-weight: 700; z-index: 999;
+    transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    white-space: nowrap; pointer-events: none;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* ── CALENDAR POPUP ── */
+  .cal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5); z-index: 300;
+    align-items: flex-start; justify-content: flex-end;
+    padding: 54px 16px 0;
+  }
+  .cal-overlay.show { display: flex; }
+  .cal-popup {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px; width: 272px;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.6);
+    animation: popIn 0.2s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  @keyframes popIn {
+    from { opacity:0; transform:scale(0.92) translateY(-6px); }
+    to   { opacity:1; transform:scale(1) translateY(0); }
+  }
+  .cal-header {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;
+  }
+  .cal-month-label { font-size: 13px; font-weight: 700; font-family: 'DM Mono', monospace; color: var(--text); }
+  .cal-nav {
+    background: none; border: none; color: var(--text2);
+    font-size: 18px; cursor: pointer; padding: 2px 8px;
+    border-radius: 6px; transition: background 0.1s; line-height: 1;
+  }
+  .cal-nav:hover { background: var(--surface2); color: var(--text); }
+  .cal-weekdays { display: grid; grid-template-columns: repeat(7,1fr); margin-bottom: 3px; }
+  .cal-wd { text-align: center; font-size: 10px; color: var(--text3); padding: 2px 0; font-family: 'DM Mono', monospace; }
+  .cal-days { display: grid; grid-template-columns: repeat(7,1fr); gap: 2px; }
+  .cal-day {
+    aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-family: 'DM Mono', monospace; color: var(--text2);
+    border-radius: 7px; cursor: pointer; border: none; background: transparent;
+    transition: background 0.1s, color 0.1s; position: relative;
+  }
+  .cal-day:hover:not([disabled]):not(.empty-cell) { background: var(--surface2); color: var(--text); }
+  .cal-day.today    { color: var(--accent); font-weight: 700; }
+  .cal-day.selected { background: var(--accent) !important; color: white !important; font-weight: 700; }
+  .cal-day.has-dot::after {
+    content: ''; width: 3px; height: 3px; border-radius: 50%;
+    background: var(--text3); position: absolute; bottom: 3px;
+    left: 50%; transform: translateX(-50%);
+  }
+  .cal-day.selected.has-dot::after { background: rgba(255,255,255,0.5); }
+  .cal-day[disabled]   { opacity: 0.2; cursor: not-allowed; }
+  .cal-day.empty-cell  { pointer-events: none; }
+
+  .cal-footer {
+    margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);
+    display: flex; justify-content: space-between;
+  }
+  .cal-today-btn {
+    font-size: 12px; color: var(--accent); background: none; border: none;
+    cursor: pointer; font-weight: 500; padding: 2px 0;
+  }
+  .cal-close-btn {
+    font-size: 12px; color: var(--text3); background: none; border: none;
+    cursor: pointer; padding: 2px 0;
+  }
+
+  /* ── DELETE CONFIRM ── */
+  .confirm-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    z-index: 400; align-items: center; justify-content: center;
+  }
+  .confirm-overlay.show { display: flex; }
+  .confirm-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 24px 20px; width: 300px; text-align: center;
+  }
+  .confirm-box p { font-size: 15px; margin-bottom: 20px; line-height: 1.6; color: var(--text2); }
+  .confirm-box strong { color: var(--text); }
+  .confirm-btns { display: flex; gap: 10px; }
+  .confirm-btns button {
+    flex: 1; padding: 12px; border: none; border-radius: var(--radius-sm);
+    font-size: 14px; font-weight: 700; cursor: pointer;
+  }
+  .btn-cancel { background: var(--surface2); color: var(--text2); }
+  .btn-delete { background: var(--red); color: white; }
+  /* ── STATS TAB ── */
+  .stats-section {
+    position: fixed; left: 50%; transform: translateX(-50%);
+    width: 100%; max-width: 430px;
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+    padding: 0 16px 20px; background: var(--surface);
+  }
+
+  /* category filter row */
+  .stats-cats {
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    gap: 0; padding: 10px 0 8px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 12px;
+  }
+  .scat-btn {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    padding: 6px 2px; border-radius: var(--radius-sm);
+    border: none; background: transparent; cursor: pointer;
+    transition: background 0.15s; position: relative;
+  }
+  .scat-icon  { font-size: 20px; line-height: 1; }
+  .scat-label { font-size: 9px; color: var(--text3); white-space: nowrap; transition: color 0.15s; }
+  .scat-btn.on .scat-label { color: var(--text2); }
+  /* dim icon when off */
+  .scat-btn.off .scat-icon { opacity: 0.25; }
+  .scat-btn.off .scat-label { opacity: 0.3; }
+  /* colored underline dot when on */
+  .scat-btn.on::after {
+    content: ''; position: absolute; bottom: 1px; left: 50%; transform: translateX(-50%);
+    width: 16px; height: 3px; border-radius: 2px;
+    background: var(--cat-color);
+  }
+
+  /* view toggle */
+  .view-toggle {
+    display: flex; gap: 6px; margin-bottom: 14px;
+  }
+  .vt-btn {
+    flex: 1; padding: 8px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); background: transparent;
+    color: var(--text2); font-size: 13px; font-weight: 500;
+    cursor: pointer; transition: all 0.15s;
+    font-family: 'Noto Sans KR', sans-serif;
+  }
+  .vt-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
+
+  /* chart */
+  .chart-wrap {
+    width: 100%; position: relative; margin-bottom: 12px;
+  }
+  .chart-wrap canvas { width: 100% !important; display: block; }
+
+  /* legend */
+  .chart-legend {
+    display: flex; flex-wrap: wrap; gap: 8px 14px;
+    padding: 4px 0 8px;
+  }
+  .legend-item {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 11px; color: var(--text2);
+  }
+  .legend-dot {
+    width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0;
+  }
+  /* pie period selector */
+  .pie-period-row {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .pie-period-label {
+    font-size: 13px; font-weight: 700; color: var(--text);
+    font-family: 'DM Mono', monospace;
+  }
+  .pie-period-nav {
+    display: flex; align-items: center; gap: 6px;
+  }
+  .pie-nav-btn {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text2); border-radius: 8px;
+    width: 30px; height: 30px; font-size: 16px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+  .pie-nav-btn:hover { background: var(--border); color: var(--text); }
+  .pie-period-cur {
+    font-size: 13px; font-weight: 700; color: var(--text);
+    font-family: 'DM Mono', monospace; min-width: 80px; text-align: center;
+  }
+
+  /* pie chart */
+  .pie-wrap {
+    position: relative; width: 200px; height: 200px;
+    margin: 0 auto 16px;
+  }
+  .pie-wrap canvas { position: absolute; top: 0; left: 0; }
+  .pie-center {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center; pointer-events: none;
+  }
+  .pie-center-total {
+    font-family: 'DM Mono', monospace; font-size: 13px;
+    font-weight: 700; color: var(--text); line-height: 1.2;
+  }
+  .pie-center-label {
+    font-size: 10px; color: var(--text3); margin-top: 2px;
+  }
+
+  /* pie legend */
+  .pie-legend {
+    display: flex; flex-direction: column; gap: 6px;
+    margin-bottom: 20px;
+  }
+  .pie-legend-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 10px; background: var(--surface2);
+    border-radius: var(--radius-sm);
+  }
+  .pie-legend-left  { display: flex; align-items: center; gap: 8px; }
+  .pie-legend-dot   { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+  .pie-legend-name  { font-size: 13px; color: var(--text); }
+  .pie-legend-right { text-align: right; }
+  .pie-legend-amt   { font-family: 'DM Mono', monospace; font-size: 13px; color: var(--text); }
+  .pie-legend-pct   { font-size: 11px; color: var(--text3); margin-top: 1px; }
+  /* ── SETTINGS TAB ── */
+  .settings-section {
+    position: fixed; left: 50%; transform: translateX(-50%);
+    width: 100%; max-width: 430px;
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+    padding: 16px 16px 90px; background: var(--surface);
+  }
+  .settings-title {
+    font-size: 11px; font-weight: 700; color: var(--text3);
+    letter-spacing: 1px; text-transform: uppercase;
+    margin-bottom: 8px; padding: 0 2px;
+  }
+  .settings-card {
+    background: var(--surface2); border-radius: var(--radius);
+    border: 1px solid var(--border); overflow: hidden;
+  }
+
+  /* category manage list */
+  .cat-manage-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .cat-manage-item:last-child { border-bottom: none; }
+  .cat-manage-icon {
+    font-size: 22px; flex-shrink: 0; width: 32px; text-align: center;
+  }
+  .cat-manage-info { flex: 1; }
+  .cat-manage-name { font-size: 14px; font-weight: 500; color: var(--text); }
+  .cat-manage-count { font-size: 11px; color: var(--text3); margin-top: 1px; }
+  .cat-manage-del {
+    width: 28px; height: 28px; border-radius: 8px;
+    background: none; border: 1px solid var(--border);
+    color: var(--text3); font-size: 16px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s; flex-shrink: 0;
+  }
+  .cat-manage-del:hover { background: var(--red); border-color: var(--red); color: white; }
+  /* protect 기타 category */
+  .cat-manage-del:disabled {
+    opacity: 0.2; cursor: not-allowed;
+  }
+  .cat-manage-del:disabled:hover { background: none; border-color: var(--border); color: var(--text3); }
+
+  /* add category row */
+  .add-cat-row {
+    display: flex; align-items: center; gap: 8px; padding: 12px 14px;
+  }
+  .add-cat-icon-input {
+    width: 44px; height: 40px; border-radius: var(--radius-sm);
+    background: var(--surface); border: 1.5px solid var(--border);
+    color: var(--text); font-size: 20px; text-align: center;
+    outline: none; flex-shrink: 0;
+    transition: border-color 0.15s;
+  }
+  .add-cat-icon-input:focus { border-color: var(--accent); }
+  .add-cat-name-input {
+    flex: 1; height: 40px; border-radius: var(--radius-sm);
+    background: var(--surface); border: 1.5px solid var(--border);
+    color: var(--text); font-size: 14px; padding: 0 12px;
+    outline: none; font-family: 'Noto Sans KR', sans-serif;
+    transition: border-color 0.15s; min-width: 0;
+  }
+  .add-cat-name-input:focus { border-color: var(--accent); }
+  .add-cat-name-input::placeholder { color: var(--text3); font-size: 12px; }
+  .add-cat-btn {
+    height: 40px; width: 52px; border-radius: var(--radius-sm);
+    background: var(--accent); border: none; color: white;
+    font-size: 13px; font-weight: 700; cursor: pointer;
+    font-family: 'Noto Sans KR', sans-serif; flex-shrink: 0;
+    transition: opacity 0.15s;
+  }
+  .add-cat-btn:active { opacity: 0.8; }
+  .add-cat-hint {
+    font-size: 11px; color: var(--red); padding: 0 14px 10px;
+    min-height: 18px;
+  }
+  /* ── BACKUP TAB ── */
+  .backup-row {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 16px; cursor: pointer;
+    transition: background 0.15s;
+  }
+  .backup-row:active { background: var(--border); }
+  .backup-icon  { font-size: 22px; flex-shrink: 0; width: 30px; text-align: center; }
+  .backup-info  { flex: 1; }
+  .backup-label { font-size: 14px; font-weight: 500; color: var(--text); margin-bottom: 2px; }
+  .backup-desc  { font-size: 11px; color: var(--text3); }
+  .backup-arrow { font-size: 18px; color: var(--text3); flex-shrink: 0; }
+  .backup-divider { height: 1px; background: var(--border); margin: 0 16px; }
+
+  .data-info-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px;
+  }
+  .data-info-label { font-size: 13px; color: var(--text2); }
+  .data-info-val   { font-size: 13px; color: var(--text); font-family: 'DM Mono', monospace; font-weight: 500; }
+</style>
+</head>
+<body>
+
+<!-- FIXED HEADER BLOCK -->
+<div class="header-block" id="headerBlock">
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="topbar-title">💰 가계부</div>
+  <div class="topbar-date" id="topbarDate" onclick="openCalendar()">
+    <span id="dateLabel"></span> 📅
+  </div>
+</div>
+
+<!-- QUICK ADD -->
+<div class="quick-add">
+  <div class="cat-grid" id="catGrid"></div>
+  <div class="input-row">
+    <div class="amount-wrap">
+      <span class="amount-currency">$</span>
+      <input class="amount-input" id="amountInput" type="number"
+             inputmode="decimal" placeholder="0.00" min="0" step="0.01">
+    </div>
+    <div class="memo-wrap">
+      <span class="memo-icon">✏️</span>
+      <input class="memo-input" id="memoInput" type="text" placeholder="메모 (선택)" maxlength="30">
+    </div>
+  </div>
+  <button class="add-btn" id="addBtn" onclick="addTransaction()" disabled>카테고리와 금액을 입력하세요</button>
+</div>
+
+</div><!-- end header-block -->
+
+<!-- ALL TRANSACTIONS -->
+<div class="all-section" id="allSection">
+  <div id="txGroups"></div>
+</div>
+
+<!-- STATS TAB -->
+<div class="stats-section" id="statsSection" style="display:none;">
+
+  <!-- Category filter -->
+  <div class="stats-cats" id="statsCats"></div>
+
+  <!-- View toggle -->
+  <div class="view-toggle">
+    <button class="vt-btn active" id="btnMonthly" onclick="setView('monthly')">Monthly</button>
+    <button class="vt-btn" id="btnYearly"  onclick="setView('yearly')">Yearly</button>
+  </div>
+
+  <!-- Stacked bar chart -->
+  <div class="chart-wrap" style="overflow-x:auto;">
+    <canvas id="statsCanvas"></canvas>
+  </div>
+
+  <!-- Bar chart legend -->
+  <div class="chart-legend" id="chartLegend"></div>
+
+  <!-- Divider -->
+  <div style="height:1px; background:var(--border); margin:16px 0;"></div>
+
+  <!-- Pie chart period selector -->
+  <div class="pie-period-row" id="piePeriodRow"></div>
+
+  <!-- Pie chart -->
+  <div class="pie-wrap">
+    <canvas id="pieCanvas"></canvas>
+    <div class="pie-center" id="pieCenter"></div>
+  </div>
+
+  <!-- Pie legend -->
+  <div class="pie-legend" id="pieLegend"></div>
+
+</div>
+
+<!-- SETTINGS TAB -->
+<div class="settings-section" id="settingsSection" style="display:none;">
+
+  <div class="settings-title">카테고리 관리</div>
+
+  <!-- Current categories list -->
+  <div class="settings-card" id="catManageList"></div>
+
+  <!-- Add new category -->
+  <div class="settings-title" style="margin-top:20px;">새 카테고리 추가</div>
+  <div class="settings-card">
+    <div class="add-cat-row">
+      <input class="add-cat-icon-input" id="newCatIcon" type="text"
+             placeholder="😀" maxlength="2" inputmode="text">
+      <input class="add-cat-name-input" id="newCatName" type="text"
+             placeholder="이름 (한글 4자 / 영문 8자)" maxlength="8">
+      <button class="add-cat-btn" id="addCatBtn" onclick="addCategory()">추가</button>
+    </div>
+    <div class="add-cat-hint" id="addCatHint"></div>
+  </div>
+
+</div>
+
+<!-- BACKUP TAB -->
+<div class="settings-section" id="backupSection" style="display:none;">
+
+  <!-- JSON Backup -->
+  <div class="settings-title">백업 (JSON)</div>
+  <div class="settings-card">
+    <div class="backup-row" onclick="exportJSON()">
+      <div class="backup-icon">💾</div>
+      <div class="backup-info">
+        <div class="backup-label">JSON으로 내보내기</div>
+        <div class="backup-desc">모든 데이터를 파일로 저장 — 복원용</div>
+      </div>
+      <div class="backup-arrow">›</div>
+    </div>
+    <div class="backup-divider"></div>
+    <div class="backup-row" onclick="document.getElementById('jsonFileInput').click()">
+      <div class="backup-icon">📂</div>
+      <div class="backup-info">
+        <div class="backup-label">JSON에서 가져오기</div>
+        <div class="backup-desc">백업 파일로 데이터 복원</div>
+      </div>
+      <div class="backup-arrow">›</div>
+    </div>
+    <input type="file" id="jsonFileInput" accept=".json" style="display:none" onchange="importJSON(event)">
+  </div>
+
+  <!-- Excel Export -->
+  <div class="settings-title" style="margin-top:20px;">엑셀 내보내기</div>
+  <div class="settings-card">
+    <div class="backup-row" onclick="exportExcel('all')">
+      <div class="backup-icon">📊</div>
+      <div class="backup-info">
+        <div class="backup-label">전체 내역 내보내기</div>
+        <div class="backup-desc">모든 지출 내역을 엑셀 파일로 저장</div>
+      </div>
+      <div class="backup-arrow">›</div>
+    </div>
+    <div class="backup-divider"></div>
+    <div class="backup-row" onclick="exportExcel('month')">
+      <div class="backup-icon">📅</div>
+      <div class="backup-info">
+        <div class="backup-label">이번 달만 내보내기</div>
+        <div class="backup-desc" id="excelMonthLabel"></div>
+      </div>
+      <div class="backup-arrow">›</div>
+    </div>
+    <div class="backup-divider"></div>
+    <div class="backup-row" onclick="exportExcel('year')">
+      <div class="backup-icon">🗓</div>
+      <div class="backup-info">
+        <div class="backup-label">이번 해만 내보내기</div>
+        <div class="backup-desc" id="excelYearLabel"></div>
+      </div>
+      <div class="backup-arrow">›</div>
+    </div>
+  </div>
+
+  <!-- Data info -->
+  <div class="settings-title" style="margin-top:20px;">현재 데이터</div>
+  <div class="settings-card">
+    <div class="data-info-row">
+      <span class="data-info-label">총 지출 건수</span>
+      <span class="data-info-val" id="infoTxCount">—</span>
+    </div>
+    <div class="backup-divider"></div>
+    <div class="data-info-row">
+      <span class="data-info-label">카테고리 수</span>
+      <span class="data-info-val" id="infoCatCount">—</span>
+    </div>
+    <div class="backup-divider"></div>
+    <div class="data-info-row">
+      <span class="data-info-label">가장 오래된 내역</span>
+      <span class="data-info-val" id="infoOldest">—</span>
+    </div>
+  </div>
+
+  <!-- Danger zone -->
+  <div class="settings-title" style="margin-top:20px;">데이터 초기화</div>
+  <div class="settings-card">
+    <div class="backup-row" onclick="requestResetAll()" style="color:var(--red)">
+      <div class="backup-icon">🗑</div>
+      <div class="backup-info">
+        <div class="backup-label" style="color:var(--red)">모든 데이터 초기화</div>
+        <div class="backup-desc">지출 내역과 카테고리를 모두 삭제해요</div>
+      </div>
+      <div class="backup-arrow">›</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- RESET CONFIRM OVERLAY -->
+<div class="confirm-overlay" id="resetConfirmOverlay">
+  <div class="confirm-box">
+    <p><strong>모든 데이터를 초기화할까요?</strong><br><br>지출 내역과 커스텀 카테고리가 모두 삭제돼요. 되돌릴 수 없어요.</p>
+    <div class="confirm-btns">
+      <button class="btn-cancel" onclick="closeResetConfirm()">취소</button>
+      <button class="btn-delete" onclick="confirmResetAll()">초기화</button>
+    </div>
+  </div>
+</div>
+<div class="confirm-overlay" id="catConfirmOverlay">
+  <div class="confirm-box">
+    <p id="catConfirmMsg"></p>
+    <div class="confirm-btns">
+      <button class="btn-cancel" onclick="closeCatConfirm()">취소</button>
+      <button class="btn-delete" onclick="confirmCatDelete()">삭제 후 기타로 이동</button>
+    </div>
+  </div>
+</div>
+<div class="bottom-nav">
+  <button class="nav-btn active" id="nav-home"><span class="nav-icon">🏠</span><span class="nav-label">홈</span></button>
+  <button class="nav-btn" id="nav-stats"><span class="nav-icon">📊</span><span class="nav-label">통계</span></button>
+  <button class="nav-btn" id="nav-settings"><span class="nav-icon">⚙️</span><span class="nav-label">카테고리</span></button>
+  <button class="nav-btn" id="nav-backup"><span class="nav-icon">💾</span><span class="nav-label">백업</span></button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- CALENDAR POPUP -->
+<div class="cal-overlay" id="calOverlay" onclick="handleOverlayClick(event)">
+  <div class="cal-popup" id="calPopup">
+    <div class="cal-header">
+      <button class="cal-nav" onclick="calPrev()">‹</button>
+      <div class="cal-month-label" id="calMonthLabel"></div>
+      <button class="cal-nav" onclick="calNext()">›</button>
+    </div>
+    <div class="cal-weekdays">
+      <div class="cal-wd">Su</div><div class="cal-wd">Mo</div><div class="cal-wd">Tu</div>
+      <div class="cal-wd">We</div><div class="cal-wd">Th</div><div class="cal-wd">Fr</div>
+      <div class="cal-wd">Sa</div>
+    </div>
+    <div class="cal-days" id="calDays"></div>
+    <div class="cal-footer">
+      <button class="cal-today-btn" onclick="selectToday()">오늘로 돌아가기</button>
+      <button class="cal-close-btn" onclick="closeCalendar()">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- DELETE CONFIRM -->
+<div class="confirm-overlay" id="confirmOverlay">
+  <div class="confirm-box">
+    <p id="confirmMsg"></p>
+    <div class="confirm-btns">
+      <button class="btn-cancel" onclick="closeConfirm()">취소</button>
+      <button class="btn-delete" onclick="confirmDelete()">삭제</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── STORAGE ──
+const STORAGE_KEY = 'kakeibo_txns_v1';
+const CATS_KEY    = 'kakeibo_cats_v1';
+
+const DEFAULT_CATS = [
+  { id:'food',      label:'식비', icon:'🍚' },
+  { id:'cafe',      label:'카페', icon:'☕' },
+  { id:'transport', label:'교통', icon:'🚌' },
+  { id:'shopping',  label:'쇼핑', icon:'🛍️' },
+  { id:'health',    label:'의료', icon:'💊' },
+  { id:'hobby',     label:'취미', icon:'🎮' },
+  { id:'beauty',    label:'미용', icon:'💅' },
+  { id:'house',     label:'주거', icon:'🏠' },
+  { id:'edu',       label:'교육', icon:'📚' },
+  { id:'etc',       label:'기타', icon:'📦' },
+];
+
+let categories      = JSON.parse(localStorage.getItem(CATS_KEY))    || DEFAULT_CATS;
+let transactions    = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+let selectedCat     = null;
+let pendingDeleteId = null;
+
+// The date new entries will be logged to (defaults to today, midnight)
+let selectedDate = todayMidnight();
+// Calendar popup view state
+let calYear, calMonth;
+
+// ── HELPERS ──
+function fmt(n) {
+  return n.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
+}
+function saveTxns() { localStorage.setItem(STORAGE_KEY, JSON.stringify(transactions)); }
+
+function todayMidnight() {
+  const d = new Date(); d.setHours(0,0,0,0); return d;
+}
+// "YYYY-MM-DD" from a Date, using LOCAL time
+function dateKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function isToday(dateOrKey) {
+  const k = (typeof dateOrKey === 'string') ? dateOrKey : dateKey(dateOrKey);
+  return k === dateKey(new Date());
+}
+
+// ── INIT ──
+function init() {
+  renderTopbarDate();
+  renderCats();
+  renderAllGroups();
+
+  document.getElementById('amountInput').addEventListener('input',  updateAddBtn);
+  document.getElementById('amountInput').addEventListener('change', updateAddBtn);
+  document.getElementById('amountInput').addEventListener('keydown', e => { if (e.key==='Enter') tryAdd(); });
+  document.getElementById('memoInput').addEventListener('keydown',  e => { if (e.key==='Enter') tryAdd(); });
+
+  scheduleMidnightRefresh();
+  // layout after render
+  requestAnimationFrame(fixLayout);
+}
+
+// ── TOPBAR DATE ──
+function renderTopbarDate() {
+  const bar = document.getElementById('topbarDate');
+  const lbl = document.getElementById('dateLabel');
+  lbl.textContent = selectedDate.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+  bar.classList.toggle('custom', !isToday(selectedDate));
+}
+
+function scheduleMidnightRefresh() {
+  const now  = new Date();
+  const next = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1);
+  setTimeout(() => { renderTopbarDate(); renderAllGroups(); scheduleMidnightRefresh(); }, next - now);
+}
+
+// ── CATEGORIES ──
+function renderCats() {
+  document.getElementById('catGrid').innerHTML = categories.map(c => `
+    <button class="cat-btn ${selectedCat===c.id?'active':''}" onclick="selectCat('${c.id}')">
+      <span class="cat-icon">${c.icon}</span>
+      <span class="cat-label">${c.label}</span>
+      ${selectedCat===c.id ? '<div class="cat-dot"></div>' : ''}
+    </button>`).join('');
+}
+function selectCat(id) { selectedCat = id; renderCats(); updateAddBtn(); }
+
+// ── ADD BUTTON ──
+function updateAddBtn() {
+  const btn = document.getElementById('addBtn');
+  const raw = document.getElementById('amountInput').value;
+  const val = parseFloat(raw);
+  const ok  = !!selectedCat && raw !== '' && !isNaN(val) && val > 0;
+  if (ok) { btn.removeAttribute('disabled'); btn.textContent = '지출 추가  +'; }
+  else    { btn.setAttribute('disabled', true); btn.textContent = '카테고리와 금액을 입력하세요'; }
+}
+function tryAdd() { if (!document.getElementById('addBtn').disabled) addTransaction(); }
+
+// ── ADD TRANSACTION ──
+function addTransaction() {
+  const cat = categories.find(c => c.id === selectedCat);
+  const raw = document.getElementById('amountInput').value;
+  const val = parseFloat(raw);
+  if (!cat || !raw || isNaN(val) || val <= 0) { showToast('⚠️ 카테고리와 금액을 확인해주세요'); return; }
+
+  // Store as noon on selectedDate to avoid DST / timezone issues
+  const txDate = new Date(selectedDate); txDate.setHours(12,0,0,0);
+
+  const tx = {
+    id: Date.now(),
+    catId: cat.id, catLabel: cat.label, catIcon: cat.icon,
+    amount: Math.round(val * 100) / 100,
+    memo:   document.getElementById('memoInput').value.trim(),
+    date:   txDate.toISOString(),
+  };
+  transactions.unshift(tx);
+  saveTxns();
+
+  document.getElementById('amountInput').value = '';
+  document.getElementById('memoInput').value   = '';
+  selectedCat = null;
+  renderCats(); updateAddBtn(); renderAllGroups(); fixLayout();
+  showToast(`${cat.icon} ${cat.label}  $${fmt(tx.amount)} added!`);
+}
+
+// ── RENDER ALL GROUPS ──
+function renderAllGroups() {
+  const container = document.getElementById('txGroups');
+
+  if (transactions.length === 0) {
+    container.innerHTML = '<div class="empty"><div class="empty-icon">📋</div>아직 지출 내역이 없어요</div>';
+    return;
+  }
+
+  // Build group map keyed by "YYYY-MM-DD"
+  const groups = {};
+  for (const tx of transactions) {
+    const k = dateKey(new Date(tx.date));
+    if (!groups[k]) groups[k] = [];
+    groups[k].push(tx);
+  }
+
+  // Newest date first
+  const keys = Object.keys(groups).sort((a,b) => b.localeCompare(a));
+
+  container.innerHTML = keys.map((k, idx) => {
+    const d     = new Date(k + 'T12:00:00');   // parse as local noon
+    const today = isToday(k);
+    const dayLabel = d.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+    const wdLabel  = d.toLocaleDateString('en-US', { weekday:'short' });
+    const total    = groups[k].reduce((s,tx) => s + tx.amount, 0);
+
+    const items = groups[k].map(tx => {
+      const name = tx.memo || tx.catLabel;
+      return `
+        <div class="tx-item" id="tx-${tx.id}" ontouchstart="toggleDelete(this)"  onclick="handleItemClick(event, this)"  >
+          <div class="tx-cat-icon">${tx.catIcon}</div>
+          <div class="tx-info">
+            <div class="tx-name">${esc(name)}</div>
+            <div class="tx-cat">${tx.catLabel}</div>
+          </div>
+          <div class="tx-amount">$${fmt(tx.amount)}</div>
+          <button class="tx-delete" onclick="askDelete(${tx.id},'${esc(name)}')" title="삭제">✕</button>
+        </div>`;
+    }).join('');
+
+    return `
+      <div class="date-group ${idx===0?'first-group':''}">
+        <div class="date-header">
+          <div class="date-header-left">
+            <span class="date-header-day ${today?'today':''}">${today ? 'Today · ' : ''}${dayLabel}</span>
+            <span class="date-header-wd">${wdLabel}</span>
+          </div>
+          <span class="date-header-total">$${fmt(total)}</span>
+        </div>
+        <div class="tx-list">${items}</div>
+      </div>`;
+  }).join('');
+}
+
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+          .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ── DELETE ──
+function askDelete(id, name) {
+  pendingDeleteId = id;
+  document.getElementById('confirmMsg').innerHTML = `<strong>"${esc(name)}"</strong>을(를) 삭제할까요?`;
+  document.getElementById('confirmOverlay').classList.add('show');
+}
+function closeConfirm() { pendingDeleteId=null; document.getElementById('confirmOverlay').classList.remove('show'); }
+function confirmDelete() {
+  if (pendingDeleteId === null) return;
+  transactions = transactions.filter(tx => tx.id !== pendingDeleteId);
+  saveTxns(); renderAllGroups(); closeConfirm(); showToast('🗑 삭제됐어요');
+}
+
+// ── CALENDAR ──
+function openCalendar() {
+  calYear  = selectedDate.getFullYear();
+  calMonth = selectedDate.getMonth();
+  buildCalendar();
+  document.getElementById('calOverlay').classList.add('show');
+}
+function closeCalendar() { document.getElementById('calOverlay').classList.remove('show'); }
+function handleOverlayClick(e) { if (e.target.id === 'calOverlay') closeCalendar(); }
+
+function calPrev() { if (--calMonth < 0) { calMonth=11; calYear--; } buildCalendar(); }
+function calNext() { if (++calMonth > 11) { calMonth=0; calYear++; } buildCalendar(); }
+
+function selectToday() {
+  selectedDate = todayMidnight();
+  renderTopbarDate(); closeCalendar();
+  renderAllGroups();
+  // scroll to top (today is first)
+  document.getElementById('allSection').scrollTop = 0;
+}
+
+function pickDay(y, m, d) {
+  selectedDate = new Date(y, m, d); selectedDate.setHours(0,0,0,0);
+  renderTopbarDate(); closeCalendar();
+  renderAllGroups();
+  // scroll to that date group
+  const targetKey = dateKey(selectedDate);
+  setTimeout(() => {
+    const section = document.getElementById('allSection');
+    const headers = section.querySelectorAll('.date-header');
+    for (const h of headers) {
+      const daySpan = h.querySelector('.date-header-day');
+      if (daySpan && daySpan.textContent.includes(
+          selectedDate.toLocaleDateString('en-US',{month:'short',day:'numeric'}))) {
+        h.scrollIntoView({ behavior:'smooth', block:'start' });
+        break;
+      }
+    }
+  }, 60);
+}
+
+function buildCalendar() {
+  const MONTHS = ['January','February','March','April','May','June',
+                  'July','August','September','October','November','December'];
+  document.getElementById('calMonthLabel').textContent = `${MONTHS[calMonth]} ${calYear}`;
+
+  const firstDow     = new Date(calYear, calMonth, 1).getDay();
+  const daysInMonth  = new Date(calYear, calMonth+1, 0).getDate();
+  const now          = new Date();
+  const todayKey     = dateKey(now);
+  const selKey       = dateKey(selectedDate);
+
+  // dates that have entries
+  const entryDates = new Set(transactions.map(tx => dateKey(new Date(tx.date))));
+
+  let html = '';
+  for (let i=0; i<firstDow; i++) html += '<div class="cal-day empty-cell"></div>';
+
+  for (let d=1; d<=daysInMonth; d++) {
+    const k    = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const cls  = ['cal-day',
+      k===todayKey ? 'today'   : '',
+      k===selKey   ? 'selected': '',
+      entryDates.has(k) ? 'has-dot' : '',
+    ].filter(Boolean).join(' ');
+    html += `<button class="${cls}" onclick="pickDay(${calYear},${calMonth},${d})">${d}</button>`;
+  }
+
+  document.getElementById('calDays').innerHTML = html;
+}
+
+// ── TOAST ──
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ── TOUCH: show/hide delete button ──
+let lastTouched = null;
+function toggleDelete(el) {
+  if (lastTouched && lastTouched !== el) {
+    lastTouched.classList.remove('show-delete');
+  }
+  el.classList.toggle('show-delete');
+  lastTouched = el.classList.contains('show-delete') ? el : null;
+}
+function handleItemClick(e, el) {
+  // If clicking the delete button itself, do nothing extra
+  if (e.target.classList.contains('tx-delete')) return;
+}
+
+// ── TAB SWITCHING ──
+let currentTab = 'home';
+
+function switchTab(tab) {
+  currentTab = tab;
+  const homeEl     = document.getElementById('allSection');
+  const statsEl    = document.getElementById('statsSection');
+  const settingsEl = document.getElementById('settingsSection');
+  const hdrEl      = document.getElementById('headerBlock');
+
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('nav-' + tab).classList.add('active');
+
+  const navH = document.querySelector('.bottom-nav').getBoundingClientRect().height;
+  const hdrH = hdrEl.getBoundingClientRect().height;
+
+  // Hide all
+  homeEl.style.display     = 'none';
+  statsEl.style.display    = 'none';
+  settingsEl.style.display = 'none';
+  document.getElementById('backupSection').style.display = 'none';
+  hdrEl.style.display      = 'none';
+
+  if (tab === 'home') {
+    hdrEl.style.display  = '';
+    homeEl.style.display = '';
+    // measure AFTER display is restored
+    requestAnimationFrame(() => {
+      const hdrH2 = hdrEl.getBoundingClientRect().height;
+      const navH2 = document.querySelector('.bottom-nav').getBoundingClientRect().height;
+      homeEl.style.top    = hdrH2 + 'px';
+      homeEl.style.bottom = navH2 + 'px';
+    });
+  } else if (tab === 'stats') {
+    statsEl.style.display = '';
+    statsEl.style.top     = '0px';
+    statsEl.style.bottom  = navH + 'px';
+    renderStats();
+  } else if (tab === 'settings') {
+    settingsEl.style.display = '';
+    settingsEl.style.top     = '0px';
+    settingsEl.style.bottom  = navH + 'px';
+    renderSettingsTab();
+  } else if (tab === 'backup') {
+    document.getElementById('backupSection').style.display = '';
+    document.getElementById('backupSection').style.top     = '0px';
+    document.getElementById('backupSection').style.bottom  = navH + 'px';
+    renderBackupTab();
+  }
+}
+
+document.getElementById('nav-home').addEventListener('click',    () => switchTab('home'));
+document.getElementById('nav-stats').addEventListener('click',   () => switchTab('stats'));
+document.getElementById('nav-settings').addEventListener('click',() => switchTab('settings'));
+document.getElementById('nav-backup').addEventListener('click',  () => switchTab('backup'));
+// 10 distinct colors for categories
+const CAT_COLORS = [
+  '#7c6aff','#ff6a9d','#4ade80','#fbbf24','#38bdf8',
+  '#f97316','#a78bfa','#34d399','#fb7185','#e879f9'
+];
+
+let statsView        = 'monthly'; // 'monthly' | 'yearly'
+let enabledCats      = {};        // catId -> true/false
+let catColorMap      = {};        // catId -> color
+
+// ── PIE CHART STATE ──
+const TTM_SENTINEL = 99999; // special value meaning "TTM" in yearly mode
+let pieYear  = new Date().getFullYear();
+let pieMonth = new Date().getMonth();
+
+function setView(v) {
+  statsView = v;
+  document.getElementById('btnMonthly').classList.toggle('active', v==='monthly');
+  document.getElementById('btnYearly').classList.toggle('active',  v==='yearly');
+  // reset pie period to current
+  pieYear  = new Date().getFullYear();
+  pieMonth = new Date().getMonth();
+  drawChart();
+  renderPieSection();
+}
+
+function renderPieSection() {
+  renderPiePeriodRow();
+  drawPieChart();
+}
+
+function renderPiePeriodRow() {
+  const row = document.getElementById('piePeriodRow');
+  let label;
+  if (statsView === 'monthly') {
+    const d = new Date(pieYear, pieMonth, 1);
+    label = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  } else {
+    label = pieYear === TTM_SENTINEL ? 'TTM' : String(pieYear);
+  }
+  row.innerHTML = `
+    <div class="pie-period-label">Breakdown</div>
+    <div class="pie-period-nav">
+      <button class="pie-nav-btn" onclick="movePiePeriod(-1)">‹</button>
+      <div class="pie-period-cur">${label}</div>
+      <button class="pie-nav-btn" onclick="movePiePeriod(1)">›</button>
+    </div>`;
+}
+
+function movePiePeriod(dir) {
+  const now = new Date();
+  if (statsView === 'monthly') {
+    pieMonth += dir;
+    if (pieMonth > 11) { pieMonth = 0;  pieYear++; }
+    if (pieMonth < 0)  { pieMonth = 11; pieYear--; }
+    // Don't go into the future
+    if (pieYear > now.getFullYear() ||
+       (pieYear === now.getFullYear() && pieMonth > now.getMonth())) {
+      pieYear = now.getFullYear(); pieMonth = now.getMonth();
+    }
+  } else {
+    // yearly: cycle through [curYear-4, ..., curYear, TTM_SENTINEL]
+    const minYear = now.getFullYear() - 4;
+    if (pieYear === TTM_SENTINEL) {
+      if (dir > 0) return; // already at end
+      pieYear = now.getFullYear();
+    } else if (dir > 0) {
+      if (pieYear < now.getFullYear()) pieYear++;
+      else pieYear = TTM_SENTINEL; // go to TTM
+    } else {
+      if (pieYear > minYear) pieYear--;
+      // else already at min, do nothing
+    }
+  }
+  renderPiePeriodRow();
+  drawPieChart();
+}
+
+function drawPieChart() {
+  const canvas = document.getElementById('pieCanvas');
+  const ctx    = canvas.getContext('2d');
+  const center = document.getElementById('pieCenter');
+  const legend = document.getElementById('pieLegend');
+
+  const size = 200;
+  const dpr  = window.devicePixelRatio || 1;
+  canvas.style.width  = size + 'px';
+  canvas.style.height = size + 'px';
+  canvas.width  = size * dpr;
+  canvas.height = size * dpr;
+  ctx.scale(dpr, dpr);
+
+  // Gather data — handle TTM for yearly
+  const activeCats = categories.filter(c => enabledCats[c.id] !== false);
+  const isTTMPie = (statsView === 'yearly' && pieYear === TTM_SENTINEL);
+
+  const data = activeCats.map(c => {
+    let amt = 0;
+    if (statsView === 'monthly') {
+      amt = transactions
+        .filter(tx => {
+          if (tx.catId !== c.id) return false;
+          const d = new Date(tx.date);
+          return d.getFullYear()===pieYear && d.getMonth()===pieMonth;
+        })
+        .reduce((s, tx) => s + tx.amount, 0);
+    } else if (isTTMPie) {
+      // TTM: last 12 completed months
+      const now = new Date();
+      const rollEnd   = new Date(now.getFullYear(), now.getMonth(), 1); // start of current month
+      const rollStart = new Date(rollEnd.getFullYear() - 1, rollEnd.getMonth(), 1); // 12 months ago
+      amt = transactions
+        .filter(tx => {
+          if (tx.catId !== c.id) return false;
+          const d = new Date(tx.date);
+          return d >= rollStart && d < rollEnd;
+        })
+        .reduce((s, tx) => s + tx.amount, 0);
+    } else {
+      amt = transactions
+        .filter(tx => tx.catId===c.id && new Date(tx.date).getFullYear()===pieYear)
+        .reduce((s, tx) => s + tx.amount, 0);
+    }
+    return { cat: c, amt, color: catColorMap[c.id] };
+  }).filter(d => d.amt > 0)
+    .sort((a, b) => b.amt - a.amt);
+
+  const total = data.reduce((s, d) => s + d.amt, 0);
+
+  ctx.clearRect(0, 0, size, size);
+
+  if (total === 0) {
+    ctx.beginPath();
+    ctx.arc(size/2, size/2, size/2 - 20, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.lineWidth   = 28;
+    ctx.stroke();
+    center.innerHTML = `<div class="pie-center-total">$0</div><div class="pie-center-label">no data</div>`;
+    legend.innerHTML = '';
+    return;
+  }
+
+  // Draw donut — use gap only when multiple segments
+  const cx = size / 2, cy = size / 2;
+  const r      = size / 2 - 16;
+  const innerR = r * 0.38; // smaller hole = more room for labels
+  const GAP    = data.length > 1 ? 0.03 : 0;
+  let startAngle = -Math.PI / 2;
+
+  data.forEach(d => {
+    const slice = (d.amt / total) * (Math.PI * 2);
+    const gapHalf = GAP / 2;
+    const s = startAngle + gapHalf;
+    const e = startAngle + slice - gapHalf;
+
+    if (e > s) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, s, e);
+      ctx.arc(cx, cy, innerR, e, s, true);
+      ctx.closePath();
+      ctx.fillStyle = d.color;
+      ctx.fill();
+
+      // Percentage label — only draw if it fits inside the segment
+      const pct     = (d.amt / total) * 100;
+      const midAngle = startAngle + slice / 2;
+      const labelR  = (r + innerR) / 2; // midpoint of the ring
+      const lx      = cx + labelR * Math.cos(midAngle);
+      const ly      = cy + labelR * Math.sin(midAngle);
+      const pctText = Math.round(pct) + '%';
+
+      // Measure text width
+      ctx.font = 'bold 11px "DM Mono", monospace';
+      const textW = ctx.measureText(pctText).width;
+      const textH = 11;
+
+      // Arc chord width at label radius ≈ 2 * labelR * sin(slice/2)
+      // Ring radial height = r - innerR
+      const chordW   = 2 * labelR * Math.sin(Math.max(slice - GAP, 0) / 2);
+      const ringH    = r - innerR;
+      const fitW     = chordW  > textW  + 4;
+      const fitH     = ringH   > textH  + 4;
+
+      if (fitW && fitH) {
+        ctx.fillStyle    = 'rgba(0,0,0,0.75)';
+        ctx.textAlign    = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(pctText, lx, ly);
+      }
+    }
+    startAngle += slice;
+  });
+
+  // Center label
+  const periodLabel = isTTMPie ? 'TTM' : 'total';
+  center.innerHTML = `
+    <div class="pie-center-total">${fmtShort(total)}</div>
+    <div class="pie-center-label">${periodLabel}</div>`;
+
+  // Legend
+  legend.innerHTML = data.map(d => `
+    <div class="pie-legend-item">
+      <div class="pie-legend-left">
+        <div class="pie-legend-dot" style="background:${d.color}"></div>
+        <span class="pie-legend-name">${d.cat.icon} ${d.cat.label}</span>
+      </div>
+      <div class="pie-legend-right">
+        <div class="pie-legend-amt">$${fmt(d.amt)}</div>
+        <div class="pie-legend-pct">${((d.amt/total)*100).toFixed(1)}%</div>
+      </div>
+    </div>`).join('');
+}
+
+// ── RENDER STATS TAB ──
+function renderStats() {
+  // Build catColorMap from ALL categories that appear in transactions
+  const seenCats = [];
+  for (const c of categories) {
+    if (!catColorMap[c.id]) {
+      catColorMap[c.id] = CAT_COLORS[seenCats.length % CAT_COLORS.length];
+    }
+    seenCats.push(c.id);
+    if (!(c.id in enabledCats)) enabledCats[c.id] = true;
+  }
+
+  renderStatsCats();
+  drawChart();
+  renderLegend();
+  renderPieSection();
+}
+
+function renderStatsCats() {
+  const el = document.getElementById('statsCats');
+  el.innerHTML = categories.map(c => {
+    const on    = enabledCats[c.id] !== false;
+    const color = catColorMap[c.id] || '#888';
+    return `
+      <button class="scat-btn ${on?'on':'off'}"
+              style="--cat-color:${color}"
+              onclick="toggleCat('${c.id}')">
+        <span class="scat-icon">${c.icon}</span>
+        <span class="scat-label">${c.label}</span>
+      </button>`;
+  }).join('');
+}
+
+function toggleCat(id) {
+  enabledCats[id] = !enabledCats[id];
+  renderStatsCats();
+  drawChart();
+  renderLegend();
+  drawPieChart();
+}
+
+// ── CHART ──
+function drawChart() {
+  const canvas = document.getElementById('statsCanvas');
+  const ctx    = canvas.getContext('2d');
+
+  const activeCats = categories.filter(c => enabledCats[c.id] !== false);
+  const { labels, datasets, rollingIdx } = buildChartData(activeCats);
+
+  const PAD_L  = 48;
+  const PAD_R  = 12;
+  const PAD_T  = 30;
+  const PAD_B  = 36;
+  const n      = labels.length;
+  const dpr    = window.devicePixelRatio || 1;
+  const cssH   = 240;
+
+  // For yearly: fill the available width exactly
+  // For monthly: fixed bar width, scrollable
+  let BAR_W, BAR_GAP, cssW;
+  if (statsView === 'yearly') {
+    const availW = canvas.parentElement.clientWidth;
+    cssW    = availW;
+    const totalSlot = (availW - PAD_L - PAD_R);
+    BAR_GAP = Math.floor(totalSlot / n * 0.28);
+    BAR_W   = Math.floor(totalSlot / n * 0.72);
+  } else {
+    BAR_W   = 26;
+    BAR_GAP = 8;
+    const totalW = PAD_L + n * (BAR_W + BAR_GAP) + PAD_R;
+    cssW = Math.max(totalW, canvas.parentElement.clientWidth);
+  }
+
+  canvas.style.width  = cssW + 'px';
+  canvas.style.height = cssH + 'px';
+  canvas.width  = cssW * dpr;
+  canvas.height = cssH * dpr;
+  ctx.scale(dpr, dpr);
+
+  const totals = labels.map((_,i) => datasets.reduce((s,ds) => s + (ds.data[i]||0), 0));
+  const maxVal = Math.max(...totals, 1);
+  const chartH = cssH - PAD_T - PAD_B;
+
+  ctx.clearRect(0, 0, cssW, cssH);
+
+  // Grid lines & Y labels
+  const gridSteps = 4;
+  for (let g = 0; g <= gridSteps; g++) {
+    const val = (maxVal / gridSteps) * g;
+    const y   = PAD_T + chartH - (val / maxVal) * chartH;
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.lineWidth   = 1;
+    ctx.beginPath(); ctx.moveTo(PAD_L, y); ctx.lineTo(cssW - PAD_R, y); ctx.stroke();
+    ctx.fillStyle   = '#55556a';
+    ctx.font        = '10px "DM Mono", monospace';
+    ctx.textAlign   = 'right';
+    ctx.fillText(fmtShort(val), PAD_L - 4, y + 3.5);
+  }
+
+  // TTM separator line
+  if (rollingIdx > 0 && statsView === 'yearly') {
+    const sepX = PAD_L + rollingIdx * (BAR_W + BAR_GAP) - BAR_GAP * 0.5;
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.lineWidth   = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(sepX, PAD_T); ctx.lineTo(sepX, PAD_T + chartH); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Bars
+  labels.forEach((lbl, i) => {
+    const x          = PAD_L + i * (BAR_W + BAR_GAP);
+    const isTTM      = i === rollingIdx;
+    const isCurrent  = i === labels.length - 1 && !isTTM;
+    let   yOff       = 0;
+
+    datasets.forEach(ds => {
+      const val = ds.data[i] || 0;
+      if (val <= 0) return;
+      const barH = (val / maxVal) * chartH;
+      const y    = PAD_T + chartH - yOff - barH;
+      // TTM bar: slightly transparent
+      ctx.globalAlpha = isTTM ? 0.75 : 1;
+      ctx.fillStyle   = ds.color;
+      const isTopSeg  = yOff + barH >= totals[i] * 0.999;
+      roundRect(ctx, x, y, BAR_W, barH, isTopSeg ? [4,4,0,0] : [0,0,0,0]);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      yOff += barH;
+    });
+
+    // Total label above bar
+    if (totals[i] > 0) {
+      const barTopY  = PAD_T + chartH - yOff;
+      ctx.fillStyle  = isTTM ? '#8888aa' : '#e8e8f0';
+      ctx.font       = '9px "DM Mono", monospace';
+      ctx.textAlign  = 'center';
+      ctx.fillText(fmtShort(totals[i]), x + BAR_W / 2, barTopY - 4);
+    }
+
+    // X label
+    ctx.fillStyle = isTTM ? '#7c6aff' : (isCurrent ? '#7c6aff' : '#55556a');
+    ctx.font      = (isTTM || isCurrent)
+      ? 'bold 10px "DM Mono", monospace'
+      : '10px "DM Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(lbl, x + BAR_W / 2, cssH - PAD_B + 14);
+
+    // TTM sublabel
+    if (isTTM) {
+      ctx.fillStyle = '#55556a';
+      ctx.font      = '8px "DM Mono", monospace';
+      ctx.fillText('12mo', x + BAR_W / 2, cssH - PAD_B + 24);
+    }
+  });
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  const [tl,tr,br,bl] = Array.isArray(r) ? r : [r,r,r,r];
+  ctx.beginPath();
+  ctx.moveTo(x + tl, y);
+  ctx.lineTo(x + w - tr, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + tr);
+  ctx.lineTo(x + w, y + h - br);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - br, y + h);
+  ctx.lineTo(x + bl, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - bl);
+  ctx.lineTo(x, y + tl);
+  ctx.quadraticCurveTo(x, y, x + tl, y);
+  ctx.closePath();
+}
+
+function fmtShort(v) {
+  if (v >= 1000000) return '$' + (v/1000000).toFixed(1) + 'M';
+  if (v >= 1000)    return '$' + (v/1000).toFixed(1) + 'k';
+  return '$' + Math.round(v);
+}
+
+function buildChartData(activeCats) {
+  const now = new Date();
+
+  if (statsView === 'monthly') {
+    // 12 months, current month rightmost
+    const months = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push({ year: d.getFullYear(), month: d.getMonth() });
+    }
+    const labels = months.map(m => {
+      const d = new Date(m.year, m.month, 1);
+      return d.toLocaleDateString('en-US', { month: 'short' });
+    });
+    const datasets = activeCats.map(c => ({
+      id: c.id, color: catColorMap[c.id],
+      data: months.map(m =>
+        transactions
+          .filter(tx => {
+            const d = new Date(tx.date);
+            return tx.catId===c.id && d.getFullYear()===m.year && d.getMonth()===m.month;
+          })
+          .reduce((s, tx) => s + tx.amount, 0)
+      )
+    }));
+    return { labels, datasets, rollingIdx: -1 };
+
+  } else {
+    // 5 calendar years + 1 rolling 12-month bar
+    const years = [];
+    for (let i = 4; i >= 0; i--) years.push(now.getFullYear() - i);
+
+    // Rolling 12 months: from (last month of prev year) to (last month)
+    // e.g. if today is May 2026 → May 2025 ~ Apr 2026
+    const rollEnd   = new Date(now.getFullYear(), now.getMonth() - 1, 1); // last completed month
+    const rollStart = new Date(rollEnd.getFullYear() - 1, rollEnd.getMonth() + 1, 1);
+
+    const yearLabels   = years.map(String);
+    const rollingLabel = 'TTM'; // Trailing Twelve Months
+
+    const labels = [...yearLabels, rollingLabel];
+
+    const datasets = activeCats.map(c => {
+      const yearData = years.map(y =>
+        transactions
+          .filter(tx => tx.catId===c.id && new Date(tx.date).getFullYear()===y)
+          .reduce((s, tx) => s + tx.amount, 0)
+      );
+      const rollingData = transactions
+        .filter(tx => {
+          if (tx.catId !== c.id) return false;
+          const d = new Date(tx.date);
+          return d >= rollStart && d < new Date(now.getFullYear(), now.getMonth(), 1);
+        })
+        .reduce((s, tx) => s + tx.amount, 0);
+
+      return { id: c.id, color: catColorMap[c.id], data: [...yearData, rollingData] };
+    });
+
+    return { labels, datasets, rollingIdx: labels.length - 1 };
+  }
+}
+
+function renderLegend() {
+  const el = document.getElementById('chartLegend');
+  el.innerHTML = categories
+    .filter(c => enabledCats[c.id] !== false)
+    .map(c => `
+      <div class="legend-item">
+        <div class="legend-dot" style="background:${catColorMap[c.id]}"></div>
+        <span>${c.label}</span>
+      </div>`).join('');
+}
+
+// ── SETTINGS TAB ──
+let pendingDeleteCatId = null;
+
+function renderSettingsTab() {
+  const list = document.getElementById('catManageList');
+  list.innerHTML = categories.map(c => {
+    const count   = transactions.filter(tx => tx.catId === c.id).length;
+    const isEtc   = c.id === 'etc';
+    const countTxt = count > 0 ? `${count}건의 내역 있음` : '내역 없음';
+    return `
+      <div class="cat-manage-item">
+        <div class="cat-manage-icon">${c.icon}</div>
+        <div class="cat-manage-info">
+          <div class="cat-manage-name">${c.label}</div>
+          <div class="cat-manage-count">${countTxt}</div>
+        </div>
+        <button class="cat-manage-del"
+                onclick="requestDeleteCat('${c.id}')"
+                ${isEtc ? 'disabled title="기타는 삭제할 수 없어요"' : ''}>✕</button>
+      </div>`;
+  }).join('');
+
+  // Reset add form
+  document.getElementById('newCatIcon').value = '';
+  document.getElementById('newCatName').value = '';
+  document.getElementById('addCatHint').textContent = '';
+}
+
+function requestDeleteCat(id) {
+  const cat   = categories.find(c => c.id === id);
+  const count = transactions.filter(tx => tx.catId === id).length;
+
+  if (count === 0) {
+    // No entries — delete immediately
+    deleteCat(id);
+    return;
+  }
+
+  // Has entries — show warning
+  pendingDeleteCatId = id;
+  document.getElementById('catConfirmMsg').innerHTML =
+    `<strong>${cat.icon} ${cat.label}</strong>에 ${count}건의 내역이 있어요.<br>삭제하면 모두 <strong>기타</strong>로 이동돼요.`;
+  document.getElementById('catConfirmOverlay').classList.add('show');
+}
+
+function closeCatConfirm() {
+  pendingDeleteCatId = null;
+  document.getElementById('catConfirmOverlay').classList.remove('show');
+}
+
+function confirmCatDelete() {
+  if (!pendingDeleteCatId) return;
+  // Move transactions to 기타
+  const etc = categories.find(c => c.id === 'etc');
+  transactions = transactions.map(tx => {
+    if (tx.catId !== pendingDeleteCatId) return tx;
+    return { ...tx, catId: etc.id, catLabel: etc.label, catIcon: etc.icon };
+  });
+  saveTxns();
+  deleteCat(pendingDeleteCatId);
+  closeCatConfirm();
+  showToast('🗑 삭제하고 기타로 이동했어요');
+}
+
+function deleteCat(id) {
+  categories = categories.filter(c => c.id !== id);
+  localStorage.setItem(CATS_KEY, JSON.stringify(categories));
+  // If selected on home tab, clear selection
+  if (selectedCat === id) { selectedCat = null; }
+  // Refresh UI
+  renderCats();
+  renderSettingsTab();
+  // Reset stats color map so deleted cat is removed
+  delete catColorMap[id];
+  delete enabledCats[id];
+}
+
+function addCategory() {
+  const iconInput = document.getElementById('newCatIcon');
+  const nameInput = document.getElementById('newCatName');
+  const hint      = document.getElementById('addCatHint');
+  const icon = iconInput.value.trim();
+  const name = nameInput.value.trim();
+
+  // Validate icon — must be a single emoji
+  if (!icon) { hint.textContent = '이모티콘을 입력해주세요'; return; }
+
+  // Validate name
+  if (!name) { hint.textContent = '이름을 입력해주세요'; return; }
+
+  // Check length: Korean ≤ 4 chars, others ≤ 8 chars
+  const isKorean = /[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/.test(name);
+  if (isKorean && name.length > 4) {
+    hint.textContent = '한글은 4글자 이하로 입력해주세요'; return;
+  }
+  if (!isKorean && name.length > 8) {
+    hint.textContent = '영문은 8글자 이하로 입력해주세요'; return;
+  }
+
+  // Check duplicate name
+  if (categories.some(c => c.label === name)) {
+    hint.textContent = '이미 같은 이름의 카테고리가 있어요'; return;
+  }
+
+  // Max 10 categories (excluding etc keeps slot open) — allow up to 20 total
+  if (categories.length >= 20) {
+    hint.textContent = '카테고리는 최대 20개까지 추가할 수 있어요'; return;
+  }
+
+  hint.textContent = '';
+
+  const newCat = {
+    id:    'cat_' + Date.now(),
+    label: name,
+    icon:  icon,
+  };
+
+  // Insert before 기타
+  const etcIdx = categories.findIndex(c => c.id === 'etc');
+  if (etcIdx >= 0) categories.splice(etcIdx, 0, newCat);
+  else             categories.push(newCat);
+
+  localStorage.setItem(CATS_KEY, JSON.stringify(categories));
+
+  iconInput.value = '';
+  nameInput.value = '';
+  renderCats();
+  renderSettingsTab();
+  showToast(`${newCat.icon} ${newCat.label} 추가됐어요!`);
+}
+
+// Allow Enter key in add form
+document.addEventListener('DOMContentLoaded', () => {
+  ['newCatIcon','newCatName'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('keydown', e => { if (e.key==='Enter') addCategory(); });
+  });
+});
+
+// ── BACKUP TAB ──
+function renderBackupTab() {
+  const now = new Date();
+  document.getElementById('excelMonthLabel').textContent =
+    now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  document.getElementById('excelYearLabel').textContent =
+    now.getFullYear() + '년 전체';
+  document.getElementById('infoTxCount').textContent = transactions.length + '건';
+  document.getElementById('infoCatCount').textContent = categories.length + '개';
+
+  if (transactions.length > 0) {
+    const oldest = transactions.reduce((a, b) =>
+      new Date(a.date) < new Date(b.date) ? a : b);
+    document.getElementById('infoOldest').textContent =
+      new Date(oldest.date).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
+  } else {
+    document.getElementById('infoOldest').textContent = '—';
+  }
+}
+
+// ── JSON EXPORT ──
+function exportJSON() {
+  const payload = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    categories,
+    transactions,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const date = new Date().toISOString().slice(0,10);
+  a.href     = url;
+  a.download = `가계부_백업_${date}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('💾 JSON 백업 파일을 저장했어요');
+}
+
+// ── JSON IMPORT ──
+function importJSON(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.transactions || !data.categories) {
+        showToast('⚠️ 올바른 백업 파일이 아니에요'); return;
+      }
+      // Confirm before overwriting
+      if (!confirm(`백업 파일에 지출 ${data.transactions.length}건, 카테고리 ${data.categories.length}개가 있어요.\n현재 데이터를 이 백업으로 교체할까요?`)) return;
+
+      transactions = data.transactions;
+      categories   = data.categories;
+      saveTxns();
+      localStorage.setItem(CATS_KEY, JSON.stringify(categories));
+      // Reset derived state
+      catColorMap = {}; enabledCats = {}; selectedCat = null;
+      renderCats(); renderAllGroups(); renderBackupTab();
+      showToast(`✅ ${transactions.length}건 복원 완료!`);
+    } catch {
+      showToast('⚠️ 파일을 읽을 수 없어요');
+    }
+  };
+  reader.readAsText(file);
+  // Reset input so same file can be re-selected
+  event.target.value = '';
+}
+
+// ── EXCEL EXPORT ──
+function exportExcel(scope) {
+  // Load SheetJS dynamically if not already loaded
+  if (typeof XLSX === 'undefined') {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    script.onload = () => doExportExcel(scope);
+    document.head.appendChild(script);
+  } else {
+    doExportExcel(scope);
+  }
+}
+
+function doExportExcel(scope) {
+  const now = new Date();
+  let rows = transactions;
+
+  if (scope === 'month') {
+    rows = transactions.filter(tx => {
+      const d = new Date(tx.date);
+      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    });
+  } else if (scope === 'year') {
+    rows = transactions.filter(tx => new Date(tx.date).getFullYear() === now.getFullYear());
+  }
+
+  if (rows.length === 0) { showToast('⚠️ 내보낼 내역이 없어요'); return; }
+
+  // Sort oldest first
+  rows = [...rows].sort((a,b) => new Date(a.date) - new Date(b.date));
+
+  const wsData = [
+    ['날짜', '카테고리', '메모', '금액 ($)'],
+    ...rows.map(tx => {
+      const d = new Date(tx.date);
+      return [
+        d.toLocaleDateString('en-US', { year:'numeric', month:'2-digit', day:'2-digit' }),
+        tx.catLabel,
+        tx.memo || '',
+        tx.amount,
+      ];
+    })
+  ];
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  // Column widths
+  ws['!cols'] = [{ wch:14 }, { wch:10 }, { wch:24 }, { wch:12 }];
+
+  // Format amount column as currency
+  rows.forEach((_, i) => {
+    const cell = ws[XLSX.utils.encode_cell({ r: i+1, c: 3 })];
+    if (cell) cell.z = '#,##0.00';
+  });
+
+  XLSX.utils.book_append_sheet(wb, ws, '지출내역');
+
+  // Summary sheet by category
+  const catTotals = {};
+  rows.forEach(tx => {
+    catTotals[tx.catLabel] = (catTotals[tx.catLabel] || 0) + tx.amount;
+  });
+  const summaryData = [
+    ['카테고리', '합계 ($)', '비율 (%)'],
+    ...Object.entries(catTotals)
+      .sort((a,b) => b[1]-a[1])
+      .map(([label, amt]) => [label, amt, +((amt / rows.reduce((s,t)=>s+t.amount,0))*100).toFixed(1)])
+  ];
+  const ws2 = XLSX.utils.aoa_to_sheet(summaryData);
+  ws2['!cols'] = [{ wch:12 }, { wch:12 }, { wch:10 }];
+  XLSX.utils.book_append_sheet(wb, ws2, '카테고리별 합계');
+
+  const date     = now.toISOString().slice(0,7);
+  const filename = scope === 'month'
+    ? `가계부_${date}.xlsx`
+    : scope === 'year'
+    ? `가계부_${now.getFullYear()}.xlsx`
+    : `가계부_전체_${date}.xlsx`;
+  XLSX.writeFile(wb, filename);
+  showToast('📊 엑셀 파일을 저장했어요');
+}
+
+// ── RESET ALL ──
+function requestResetAll() {
+  document.getElementById('resetConfirmOverlay').classList.add('show');
+}
+function closeResetConfirm() {
+  document.getElementById('resetConfirmOverlay').classList.remove('show');
+}
+function confirmResetAll() {
+  transactions = [];
+  categories   = JSON.parse(JSON.stringify(
+    [{ id:'food',label:'식비',icon:'🍚' },{ id:'cafe',label:'카페',icon:'☕' },
+     { id:'transport',label:'교통',icon:'🚌' },{ id:'shopping',label:'쇼핑',icon:'🛍️' },
+     { id:'health',label:'의료',icon:'💊' },{ id:'hobby',label:'취미',icon:'🎮' },
+     { id:'beauty',label:'미용',icon:'💅' },{ id:'house',label:'주거',icon:'🏠' },
+     { id:'edu',label:'교육',icon:'📚' },{ id:'etc',label:'기타',icon:'📦' }]
+  ));
+  saveTxns();
+  localStorage.setItem(CATS_KEY, JSON.stringify(categories));
+  catColorMap = {}; enabledCats = {}; selectedCat = null;
+  renderCats(); renderAllGroups(); renderBackupTab();
+  closeResetConfirm();
+  showToast('🗑 모든 데이터를 초기화했어요');
+}
+
+// ── LAYOUT: fix all-section top below header-block ──
+function fixLayout() {
+  const headerBlock = document.getElementById('headerBlock');
+  const section     = document.getElementById('allSection');
+  const nav         = document.querySelector('.bottom-nav');
+
+  const headerH = headerBlock.getBoundingClientRect().height;
+  const navH    = nav.getBoundingClientRect().height;
+
+  section.style.top    = headerH + 'px';
+  section.style.bottom = navH + 'px';
+}
+
+// ── START ──
+init();
+// Run after fonts/layout settle
+setTimeout(fixLayout, 50);
+window.addEventListener('resize', fixLayout);
+window.addEventListener('orientationchange', () => setTimeout(fixLayout, 100));
+</script>
+<!-- PWA Service Worker -->
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg => console.log('SW registered:', reg.scope))
+        .catch(err => console.log('SW error:', err));
+    });
+  }
+</script>
+</body>
+</html>
