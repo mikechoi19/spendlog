@@ -1,4 +1,4 @@
-const CACHE_NAME = "spendlog-v1";;
+const CACHE_NAME = "spendlog-v2";;
 
 // Install: cache core assets
 self.addEventListener('install', e => {
